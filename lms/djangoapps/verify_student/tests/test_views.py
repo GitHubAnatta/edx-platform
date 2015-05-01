@@ -275,7 +275,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
 
     @ddt.data(
         "verify_student_verify_now",
-        "verify_student_verify_later",
         "verify_student_payment_confirmation"
     )
     def test_verify_now_or_later_not_enrolled(self, page_name):
@@ -285,7 +284,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
 
     @ddt.data(
         "verify_student_verify_now",
-        "verify_student_verify_later",
         "verify_student_payment_confirmation"
     )
     def test_verify_now_or_later_unenrolled(self, page_name):
@@ -297,7 +295,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
 
     @ddt.data(
         "verify_student_verify_now",
-        "verify_student_verify_later",
         "verify_student_payment_confirmation"
     )
     def test_verify_now_or_later_not_paid(self, page_name):
@@ -307,36 +304,12 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
         self._assert_redirects_to_upgrade(response, course.id)
 
     def test_verify_later(self):
+        """ The deprecated verify-later page should redirect to the verification start page. """
         course = self._create_course("verified")
-        self._enroll(course.id, "verified")
-        response = self._get_page("verify_student_verify_later", course.id)
-
-        self._assert_messaging(response, PayAndVerifyView.VERIFY_LATER_MSG)
-
-        # Expect that the payment steps are NOT displayed
-        self._assert_steps_displayed(
-            response,
-            [PayAndVerifyView.INTRO_STEP] + PayAndVerifyView.VERIFICATION_STEPS,
-            PayAndVerifyView.INTRO_STEP
-        )
-        self._assert_requirements_displayed(response, [
-            PayAndVerifyView.PHOTO_ID_REQ,
-            PayAndVerifyView.WEBCAM_REQ,
-        ])
-
-    def test_verify_later_already_verified(self):
-        course = self._create_course("verified")
-        self._enroll(course.id, "verified")
-        self._set_verification_status("submitted")
-
-        # Already verified, so if we somehow end up here,
-        # redirect immediately to the dashboard
-        response = self._get_page(
-            'verify_student_verify_later',
-            course.id,
-            expected_status_code=302
-        )
-        self._assert_redirects_to_dashboard(response)
+        course_key = course.id
+        self._enroll(course_key, "verified")
+        response = self._get_page("verify_student_verify_later", course_key, expected_status_code=301)
+        self._assert_redirects_to_verify_start(response, course_key, 301)
 
     def test_payment_confirmation(self):
         course = self._create_course("verified")
@@ -489,7 +462,7 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
             course.id,
             expected_status_code=302
         )
-        self._assert_redirects_to_verify_later(response, course.id)
+        self._assert_redirects_to_verify_start(response, course.id)
 
     def test_upgrade_already_verified_and_paid(self):
         course = self._create_course("verified")
@@ -531,7 +504,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
         pages = [
             'verify_student_start_flow',
             'verify_student_verify_now',
-            'verify_student_verify_later',
             'verify_student_upgrade_and_verify',
         ]
 
@@ -553,7 +525,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
     @ddt.data(
         "verify_student_start_flow",
         "verify_student_verify_now",
-        "verify_student_verify_later",
         "verify_student_upgrade_and_verify",
     )
     def test_require_login(self, url_name):
@@ -571,7 +542,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
     @ddt.data(
         "verify_student_start_flow",
         "verify_student_verify_now",
-        "verify_student_verify_later",
         "verify_student_upgrade_and_verify",
     )
     def test_no_such_course(self, url_name):
@@ -638,25 +608,6 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
         response = self._get_page("verify_student_start_flow", course.id)
         data = self._get_page_data(response)
         self.assertEqual(data['verification_deadline'], "Jan 02, 2999 at 00:00 UTC")
-
-    def test_course_mode_expired(self):
-        course = self._create_course("verified")
-        mode = CourseMode.objects.get(
-            course_id=course.id,
-            mode_slug="verified"
-        )
-        expiration = datetime(1999, 1, 2, tzinfo=pytz.UTC)
-        mode.expiration_datetime = expiration
-        mode.save()
-
-        # Need to be enrolled
-        self._enroll(course.id, "verified")
-
-        # The course mode has expired, so expect an explanation
-        # to the student that the deadline has passed
-        response = self._get_page("verify_student_verify_later", course.id)
-        self.assertContains(response, "verification deadline")
-        self.assertContains(response, "Jan 02, 1999 at 00:00 UTC")
 
     @mock.patch.dict(settings.FEATURES, {'EMBARGO': True})
     def test_embargo_restrict(self):
@@ -821,10 +772,10 @@ class TestPayAndVerifyView(UrlResetMixin, ModuleStoreTestCase):
         url = reverse('verify_student_start_flow', kwargs={'course_id': unicode(course_id)})
         self.assertRedirects(response, url)
 
-    def _assert_redirects_to_verify_later(self, response, course_id):
+    def _assert_redirects_to_verify_start(self, response, course_id, status_code=302):
         """Check that the page redirects to the "verify later" part of the flow. """
-        url = reverse('verify_student_verify_later', kwargs={'course_id': unicode(course_id)})
-        self.assertRedirects(response, url)
+        url = reverse('verify_student_verify_now', kwargs={'course_id': unicode(course_id)})
+        self.assertRedirects(response, url, status_code)
 
     def _assert_redirects_to_upgrade(self, response, course_id):
         """Check that the page redirects to the "upgrade" part of the flow. """
@@ -1765,8 +1716,7 @@ class TestInCourseReverifyView(ModuleStoreTestCase):
         self._create_checkpoint()
         response = self.client.get(self._get_url(self.course_key, self.MIDTERM))
 
-        url = reverse('verify_student_verify_later',
-                      kwargs={"course_id": unicode(self.course_key)})
+        url = reverse('verify_student_verify_now', kwargs={"course_id": unicode(self.course_key)})
         self.assertRedirects(response, url)
 
     @override_settings(SEGMENT_IO_LMS_KEY="foobar")
@@ -1810,8 +1760,7 @@ class TestInCourseReverifyView(ModuleStoreTestCase):
         self._create_checkpoint()
 
         response = self.client.post(self._get_url(self.course_key, self.MIDTERM))
-        url = reverse('verify_student_verify_later',
-                      kwargs={"course_id": unicode(self.course_key)})
+        url = reverse('verify_student_verify_now', kwargs={"course_id": unicode(self.course_key)})
 
         self.assertRedirects(response, url)
 
