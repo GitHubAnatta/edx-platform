@@ -297,6 +297,22 @@ class EventsTestMixin(object):
 
     @contextmanager
     def capture_events(self, event_filter=None, number_of_matches=1, captured_events=None):
+        """
+        Context manager that captures all events emitted while executing a particular block.
+
+        All captured events are stored in the list referenced by `captured_events`. Note that this list is appended to
+        *in place*. The events will be appended to the list in the order they are emitted.
+
+        The `event_filter` is expected to be a callable that allows you to filter the event stream and select particular
+        events of interest. A dictionary `event_filter` is also supported, which simply indicates that the event should
+        match that provided expectation.
+
+        `number_of_matches` tells this context manager when enough events have been found and it can move on. The
+        context manager will not exit until this many events have passed the filter. If not enough events are found
+        before a timeout expires, then this will raise a `BrokenPromise` error. Note that this simply states that
+        *at least* this many events have been emitted, so `number_of_matches` is simply a lower bound for the size of
+        `captured_events`.
+        """
         start_time = datetime.utcnow()
 
         yield
@@ -310,6 +326,18 @@ class EventsTestMixin(object):
 
     @contextmanager
     def assert_events_match_during(self, event_filter=None, expected_events=None):
+        """
+        Context manager that ensures that events matching the `event_filter` and `expected_events` are emitted.
+
+        This context manager will filter out the event stream using the `event_filter` and wait for
+        `len(expected_events)` to match the filter.
+
+        It will then compare the events in order with their counterpart in `expected_events` to ensure they match the
+        more detailed assertion.
+
+        Typically `event_filter` will be an `event_type` filter and the `expected_events` list will contain more
+        detailed assertions.
+        """
         captured_events = []
         with self.capture_events(event_filter, len(expected_events), captured_events):
             yield
