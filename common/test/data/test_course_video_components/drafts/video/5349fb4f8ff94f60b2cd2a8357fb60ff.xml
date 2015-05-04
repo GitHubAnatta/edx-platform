@@ -1,0 +1,9 @@
+<video url_name="5349fb4f8ff94f60b2cd2a8357fb60ff" display_name="Test Video" download_video="false" edx_video_id="a5cac31f-a18e-46c0-bc75-4e3531886aef" html5_sources="[]" youtube_id_1_0="3_yD_cEKoCk">
+  <video_asset client_video_id="KIUrologyX_S3V7.mp4" duration="390.82">
+    <encoded_video bitrate="436" file_size="21345542" profile="mobile_high" url="https://d2f1egay8yehza.cloudfront.net/KIXURLGY/KIXURLGYT315-V002000_MB1.mp4"/>
+    <encoded_video bitrate="223" file_size="10904941" profile="mobile_low" url="https://d2f1egay8yehza.cloudfront.net/KIXURLGY/KIXURLGYT315-V002000_MB2.mp4"/>
+    <encoded_video bitrate="1089" file_size="53229025" profile="desktop_webm" url="https://d2f1egay8yehza.cloudfront.net/KIXURLGY/KIXURLGYT315-V002000_DTH.webm"/>
+    <encoded_video bitrate="0" file_size="0" profile="youtube" url="4TjAQhjwPAw"/>
+    <encoded_video bitrate="1381" file_size="67469584" profile="desktop_mp4" url="https://d2f1egay8yehza.cloudfront.net/KIXURLGY/KIXURLGYT315-V002000_DTH.mp4"/>
+  </video_asset>
+</video>
