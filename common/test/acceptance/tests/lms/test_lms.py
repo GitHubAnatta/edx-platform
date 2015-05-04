@@ -303,19 +303,17 @@ class PayAndVerifyTest(EventsTestMixin, UniqueCourseTest):
         # Create a user and log them in
         student_id = AutoAuthPage(self.browser).visit().get_user_id()
 
-        with self.assert_enrollment_event_emitted_during('edx.course.enrollment.activated', student_id, 'honor'):
-            # Navigate to the track selection page
-            self.track_selection_page.visit()
+        # Navigate to the track selection page
+        self.track_selection_page.visit()
 
-            # Enter the payment and verification flow by choosing to enroll as verified
-            self.track_selection_page.enroll('verified')
+        # Enter the payment and verification flow by choosing to enroll as verified
+        self.track_selection_page.enroll('verified')
 
-            # Proceed to the fake payment page
-            self.payment_and_verification_flow.proceed_to_payment()
+        # Proceed to the fake payment page
+        self.payment_and_verification_flow.proceed_to_payment()
 
-        with self.assert_enrollment_event_emitted_during('edx.course.enrollment.mode_changed', student_id, 'verified'):
-            # Submit payment
-            self.fake_payment_page.submit_payment()
+        # Submit payment
+        self.fake_payment_page.submit_payment()
 
         # Navigate to the dashboard
         self.dashboard_page.visit()
@@ -323,20 +321,6 @@ class PayAndVerifyTest(EventsTestMixin, UniqueCourseTest):
         # Expect that we're enrolled as verified in the course
         enrollment_mode = self.dashboard_page.get_enrollment_mode(self.course_info["display_name"])
         self.assertEqual(enrollment_mode, 'verified')
-
-    @contextmanager
-    def assert_enrollment_event_emitted_during(self, event_type, student_id, mode='honor'):
-        expected_event = {
-            'event': {
-                'user_id': int(student_id),
-                'mode': mode,
-            }
-        }
-        event_filter = {
-            'event_type': event_type,
-        }
-        with self.assert_events_match_during(event_filter=event_filter, expected_events=[expected_event]):
-            yield
 
     def test_enrollment_upgrade(self):
         # Create a user, log them in, and enroll them in the honor mode
@@ -358,7 +342,20 @@ class PayAndVerifyTest(EventsTestMixin, UniqueCourseTest):
         # Proceed to the fake payment page
         self.upgrade_page.proceed_to_payment()
 
-        with self.assert_enrollment_event_emitted_during('edx.course.enrollment.mode_changed', student_id, 'verified'):
+        def only_enrollment_events(event):
+            return event['event_type'].startswith('edx.course.enrollment.')
+
+        expected_events = [
+            {
+                'event_type': 'edx.course.enrollment.mode_changed',
+                'event': {
+                    'user_id': int(student_id),
+                    'mode': 'verified',
+                }
+            }
+        ]
+
+        with self.assert_events_match_during(event_filter=only_enrollment_events, expected_events=expected_events):
             # Submit payment
             self.fake_payment_page.submit_payment()
 
