@@ -5,7 +5,7 @@ import json
 from ..helpers import EventsTestMixin
 from .test_video_module import VideoBaseTest
 
-from openedx.core.lib.tests.assertions.events import assert_event_matches
+from openedx.core.lib.tests.assertions.events import assert_event_matches, assert_events_equal
 from opaque_keys.edx.keys import UsageKey, CourseKey
 
 
@@ -70,7 +70,7 @@ class VideoEventsTest(EventsTestMixin, VideoBaseTest):
         This function asserts that those fields are present and have correct values.
         """
         current_time = json.loads(video_event['event'])['currentTime']
-        self.assertAlmostEqual(current_time, time_in_seconds, delta=0.5)
+        self.assertAlmostEqual(current_time, time_in_seconds, delta=1)
 
     def test_strict_event_format(self):
         """
@@ -123,7 +123,7 @@ class VideoEventsTest(EventsTestMixin, VideoBaseTest):
             'referer': self.browser.current_url,
             'name': 'load_video',
         }
-        assert_event_matches(static_fields_pattern, load_video_event, tolerate=[])
+        assert_events_equal(static_fields_pattern, load_video_event)
 
     def assert_field_type(self, event_dict, field, field_type):
         self.assertIn(field, event_dict, '{0} not found in the root of the event'.format(field))

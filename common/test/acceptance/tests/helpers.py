@@ -18,7 +18,7 @@ from bok_choy.web_app_test import WebAppTest
 from bok_choy.promise import EmptyPromise, Promise
 from opaque_keys.edx.locator import CourseLocator
 from pymongo import MongoClient, ASCENDING
-from openedx.core.lib.tests.assertions.events import assert_event_matches, is_matching_event
+from openedx.core.lib.tests.assertions.events import assert_event_matches, is_matching_event, EventMatchTolerates
 from xmodule.partitions.partitions import UserPartition
 from xmodule.partitions.tests.test_partitions import MockUserPartitionScheme
 from selenium.webdriver.support.select import Select
@@ -316,9 +316,12 @@ class EventsTestMixin(object):
 
         self.assert_events_match(expected_events, captured_events)
 
-    def wait_for_events(self, start_time=None, event_filter=None, number_of_matches=1):
+    def wait_for_events(self, start_time=None, event_filter=None, number_of_matches=1, timeout=None):
         if start_time is None:
             start_time = self.start_time
+
+        if timeout is None:
+            timeout = 30
 
         return Promise(
             lambda: self.matching_events_were_emitted(start_time=start_time, event_filter=event_filter, number_of_matches=number_of_matches),
@@ -328,7 +331,8 @@ class EventsTestMixin(object):
                     event_filter=self.event_filter_to_descriptive_string(event_filter),
                 ),
                 functools.partial(self.get_matching_events_from_time, start_time=start_time, event_filter={})
-            )
+            ),
+            timeout=timeout
         ).fulfill()
 
     def matching_events_were_emitted(self, start_time=None, event_filter=None, number_of_matches=1):
@@ -358,8 +362,12 @@ class EventsTestMixin(object):
         for event in cursor:
             matches = False
             try:
+                # Mongo automatically assigns an _id to all events inserted into it. We strip it out here, since
+                # we don't care about it.
                 del event['_id']
                 if event_filter is not None:
+                    # Typically we will be grabbing all events of a particular type, however, you can use arbitrary
+                    # logic to identify the events that are of interest.
                     matches = event_filter(event)
             except AssertionError:
                 continue
@@ -390,12 +398,7 @@ class EventsTestMixin(object):
             assert_event_matches(
                 expected_event,
                 actual_event,
-                tolerate={
-                    'string_payload',
-                    'root_extra_fields',
-                    'context_extra_fields',
-                    'payload_extra_fields'
-                }
+                tolerate=EventMatchTolerates.lenient()
             )
 
     def relative_path_to_absolute_uri(self, relative_path):

@@ -27,11 +27,46 @@ def assert_event_matches(expected, actual, tolerate=None):
             'Actual:',
             block_indent(actual),
             'Tolerating:',
-            block_indent(get_tolerate_or_default(tolerate)),
+            block_indent(EventMatchTolerates.default_if_not_defined(tolerate)),
         ]
         differences = ['* ' + d for d in differences]
         message_lines = differences + debug_info
         raise AssertionError('Unexpected differences found in structs:\n\n' + '\n'.join(message_lines))
+
+
+class EventMatchTolerates(object):
+
+    STRING_PAYLOAD = 'string_payload'
+    ROOT_EXTRA_FIELDS = 'root_extra_fields'
+    CONTEXT_EXTRA_FIELDS = 'context_extra_fields'
+    PAYLOAD_EXTRA_FIELDS = 'payload_extra_fields'
+
+    @classmethod
+    def default(cls):
+        # NOTE: "payload_extra_fields" is deliberately excluded from this list since we want to detect erroneously added
+        # fields in the payload.
+        return {
+            cls.STRING_PAYLOAD,
+            cls.ROOT_EXTRA_FIELDS,
+            cls.CONTEXT_EXTRA_FIELDS,
+        }
+
+    @classmethod
+    def lenient(cls):
+        return cls.default() | {
+            cls.PAYLOAD_EXTRA_FIELDS
+        }
+
+    @classmethod
+    def strict(cls):
+        return frozenset()
+
+    @classmethod
+    def default_if_not_defined(cls, tolerates=None):
+        if tolerates is None:
+            return cls.default()
+        else:
+            return tolerates
 
 
 def assert_events_equal(expected, actual):
@@ -40,17 +75,17 @@ def assert_events_equal(expected, actual):
 
     This asserts that every field in the real event exactly matches the expected event.
     """
-    assert_event_matches(expected, actual, tolerate=frozenset())
+    assert_event_matches(expected, actual, tolerate=EventMatchTolerates.strict())
 
 
 def get_event_differences(expected, actual, tolerate=None):
-    tolerate = get_tolerate_or_default(tolerate)
+    tolerate = EventMatchTolerates.default_if_not_defined(tolerate)
 
     # Some events store their payload in a JSON string instead of a dict. Comparing these strings can be problematic
     # since the keys may be in different orders, so we parse the string here if we were expecting a dict.
-    if 'string_payload' in tolerate:
-        expected = parse_event_payload(expected.copy())
-        actual = parse_event_payload(actual.copy())
+    if EventMatchTolerates.STRING_PAYLOAD in tolerate:
+        expected = parse_event_payload(expected)
+        actual = parse_event_payload(actual)
 
     def should_strict_compare(path):
         """
@@ -59,11 +94,11 @@ def get_event_differences(expected, actual, tolerate=None):
         Some tests will want to assert that the entire event matches exactly, others will tolerate some variance in the
         context or root fields, but not in the payload (for example).
         """
-        if path == [] and 'root_extra_fields' in tolerate:
+        if path == [] and EventMatchTolerates.ROOT_EXTRA_FIELDS in tolerate:
             return False
-        elif path == ['event'] and 'payload_extra_fields' in tolerate:
+        elif path == ['event'] and EventMatchTolerates.PAYLOAD_EXTRA_FIELDS in tolerate:
             return False
-        elif path == ['context'] and 'context_extra_fields' in tolerate:
+        elif path == ['context'] and EventMatchTolerates.CONTEXT_EXTRA_FIELDS in tolerate:
             return False
         else:
             return True
@@ -75,23 +110,9 @@ def block_indent(text, spaces=4):
     return '\n'.join([(' ' * spaces) + l for l in pprint.pformat(text).splitlines()])
 
 
-def get_tolerate_or_default(tolerate=None):
-    tolerate_by_default = {
-        'string_payload',
-        'root_extra_fields',
-        'context_extra_fields',
-        # NOTE: "payload_extra_fields" is deliberately excluded from this list since we want to detect erroneously added
-        # fields in the payload.
-    }
-
-    if tolerate is None:
-        tolerate = tolerate_by_default
-
-    return tolerate
-
-
 def parse_event_payload(event):
     if 'event' in event and isinstance(event['event'], basestring):
+        event = event.copy()
         try:
             event['event'] = json.loads(event['event'])
         except ValueError:

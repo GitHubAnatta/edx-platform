@@ -332,6 +332,9 @@ class SegmentIOTrackingTestCase(EventTrackingTestCase):
             'code': 'mobile'
         }
         if name == 'edx.video.loaded':
+            # We use the same expected payload for all of these types of events, but the load video event is the only
+            # one that is not actually expected to contain a "current time" field. So we remove it from the expected
+            # event here.
             del input_payload['current_time']
 
         request = self.create_request(
@@ -397,6 +400,9 @@ class SegmentIOTrackingTestCase(EventTrackingTestCase):
                 }
             }
             if name == 'edx.video.loaded':
+                # We use the same expected payload for all of these types of events, but the load video event is the only
+                # one that is not actually expected to contain a "current time" field. So we remove it from the expected
+                # event here.
                 del expected_event['event']['currentTime']
         finally:
             middleware.process_response(request, None)
