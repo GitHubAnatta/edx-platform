@@ -92,7 +92,10 @@ def get_tolerate_or_default(tolerate=None):
 
 def parse_event_payload(event):
     if 'event' in event and isinstance(event['event'], basestring):
-        event['event'] = json.loads(event['event'])
+        try:
+            event['event'] = json.loads(event['event'])
+        except ValueError:
+            pass
     return event
 
 

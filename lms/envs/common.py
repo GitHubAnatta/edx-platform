@@ -615,9 +615,7 @@ EVENT_TRACKING_BACKENDS = {
                 {
                     'ENGINE': 'eventtracking.processors.whitelist.NameWhitelistProcessor',
                     'OPTIONS': {
-                        'whitelist': [
-                            'show_transcript'
-                        ]
+                        'whitelist': []
                     }
                 }
             ]

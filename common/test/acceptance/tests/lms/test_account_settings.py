@@ -36,7 +36,7 @@ class AccountSettingsTestMixin(EventsTestMixin, WebAppTest):
     def settings_changed_event_filter(self, event):
         return event['event_type'] == self.USER_SETTINGS_CHANGED_EVENT_NAME
 
-    def expected_settings_change_initiated_event(self, setting, old, new, table=None):
+    def expected_settings_changed_event(self, setting, old, new, table=None):
         return {
             'username': self.username,
             'referer': self.get_settings_page_url(),
@@ -53,7 +53,7 @@ class AccountSettingsTestMixin(EventsTestMixin, WebAppTest):
     def settings_change_initiated_event_filter(self, event):
         return event['event_type'] == self.CHANGE_INITIATED_EVENT_NAME
 
-    def expected_settings_changed_event(self, setting, old, new, username=None, user_id=None):
+    def expected_settings_change_initiated_event(self, setting, old, new, username=None, user_id=None):
         return {
             'username': username or self.username,
             'referer': self.get_settings_page_url(),
@@ -259,8 +259,8 @@ class AccountSettingsPageTest(AccountSettingsTestMixin, WebAppTest):
         actual_events = self.wait_for_events(event_filter=self.settings_changed_event_filter, number_of_matches=2)
         self.assert_events_match(
             [
-                self.expected_settings_change_initiated_event('name', self.username, 'another name'),
-                self.expected_settings_change_initiated_event('name', 'another name', self.username),
+                self.expected_settings_changed_event('name', self.username, 'another name'),
+                self.expected_settings_changed_event('name', 'another name', self.username),
             ],
             actual_events
         )
@@ -286,10 +286,10 @@ class AccountSettingsPageTest(AccountSettingsTestMixin, WebAppTest):
             event_filter=self.settings_change_initiated_event_filter, number_of_matches=2)
         self.assert_events_match(
             [
-                self.expected_settings_changed_event(
+                self.expected_settings_change_initiated_event(
                     'email', email, 'me@here.com', username=username, user_id=user_id),
                 # NOTE the first email change was never confirmed, so old has not changed.
-                self.expected_settings_changed_event(
+                self.expected_settings_change_initiated_event(
                     'email', email, 'you@there.com', username=username, user_id=user_id),
             ],
             actual_events
@@ -309,7 +309,7 @@ class AccountSettingsPageTest(AccountSettingsTestMixin, WebAppTest):
             success_message='Click the link in the message to reset your password.',
         )
 
-        event_filter = self.expected_settings_changed_event('password', None, None)
+        event_filter = self.expected_settings_change_initiated_event('password', None, None)
         self.wait_for_events(event_filter=event_filter, number_of_matches=1)
         # Like email, since the user has not confirmed their password change,
         # the field has not yet changed, so no events will have been emitted.
@@ -345,8 +345,8 @@ class AccountSettingsPageTest(AccountSettingsTestMixin, WebAppTest):
         actual_events = self.wait_for_events(event_filter=self.settings_changed_event_filter, number_of_matches=2)
         self.assert_events_match(
             [
-                self.expected_settings_change_initiated_event('level_of_education', None, 'b'),
-                self.expected_settings_change_initiated_event('level_of_education', 'b', None),
+                self.expected_settings_changed_event('level_of_education', None, 'b'),
+                self.expected_settings_changed_event('level_of_education', 'b', None),
             ],
             actual_events
         )
@@ -365,8 +365,8 @@ class AccountSettingsPageTest(AccountSettingsTestMixin, WebAppTest):
         actual_events = self.wait_for_events(event_filter=self.settings_changed_event_filter, number_of_matches=2)
         self.assert_events_match(
             [
-                self.expected_settings_change_initiated_event('gender', None, 'f'),
-                self.expected_settings_change_initiated_event('gender', 'f', None),
+                self.expected_settings_changed_event('gender', None, 'f'),
+                self.expected_settings_changed_event('gender', 'f', None),
             ],
             actual_events
         )
@@ -377,22 +377,18 @@ class AccountSettingsPageTest(AccountSettingsTestMixin, WebAppTest):
         """
         # Note that when we clear the year_of_birth here we're firing an event.
         self.assertEqual(self.account_settings_page.value_for_dropdown_field('year_of_birth', ''), '')
-        self.reset_event_tracking()
-        self._test_dropdown_field(
-            u'year_of_birth',
-            u'Year of Birth',
-            u'',
-            [u'1980', u''],
-        )
 
-        actual_events = self.wait_for_events(event_filter=self.settings_changed_event_filter, number_of_matches=2)
-        self.assert_events_match(
-            [
-                self.expected_settings_change_initiated_event('year_of_birth', None, 1980),
-                self.expected_settings_change_initiated_event('year_of_birth', 1980, None),
-            ],
-            actual_events
-        )
+        expected_events = [
+            self.expected_settings_changed_event('year_of_birth', None, 1980),
+            self.expected_settings_changed_event('year_of_birth', 1980, None),
+        ]
+        with self.assert_events_match_during(self.settings_changed_event_filter, expected_events):
+            self._test_dropdown_field(
+                u'year_of_birth',
+                u'Year of Birth',
+                u'',
+                [u'1980', u''],
+            )
 
     def test_country_field(self):
         """
@@ -419,8 +415,8 @@ class AccountSettingsPageTest(AccountSettingsTestMixin, WebAppTest):
         actual_events = self.wait_for_events(event_filter=self.settings_changed_event_filter, number_of_matches=2)
         self.assert_events_match(
             [
-                self.expected_settings_change_initiated_event('language_proficiencies', [], [{'code': 'ps'}], table='student_languageproficiency'),
-                self.expected_settings_change_initiated_event('language_proficiencies', [{'code': 'ps'}], [], table='student_languageproficiency'),
+                self.expected_settings_changed_event('language_proficiencies', [], [{'code': 'ps'}], table='student_languageproficiency'),
+                self.expected_settings_changed_event('language_proficiencies', [{'code': 'ps'}], [], table='student_languageproficiency'),
             ],
             actual_events
         )

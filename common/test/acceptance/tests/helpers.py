@@ -291,80 +291,9 @@ class EventsTestMixin(object):
         self.event_collection = MongoClient()["test"]["events"]
         self.reset_event_tracking()
 
-    def assert_event_emitted_num_times(self, event_name, event_time, event_user_id, num_times_emitted, **kwargs):
-        """
-        Tests the number of times a particular event was emitted.
-
-        Extra kwargs get passed to the mongo query in the form: "event.<key>: value".
-
-        :param event_name: Expected event name (e.g., "edx.course.enrollment.activated")
-        :param event_time: Latest expected time, after which the event would fire (e.g., the beginning of the test case)
-        :param event_user_id: user_id expected in the event
-        :param num_times_emitted: number of times the event is expected to appear since the event_time
-        """
-        find_kwargs = {
-            "name": event_name,
-            "time": {"$gt": event_time},
-            "event.user_id": int(event_user_id),
-        }
-        find_kwargs.update({"event.{}".format(key): value for key, value in kwargs.items()})
-        matching_events = self.event_collection.find(find_kwargs)
-        self.assertEqual(matching_events.count(), num_times_emitted, '\n'.join(str(event) for event in matching_events))
-
     def reset_event_tracking(self):
-        """
-        Resets all event tracking so that previously captured events are removed.
-        """
         self.event_collection.drop()
         self.start_time = datetime.now()
-
-    def get_matching_events(self, username, event_type):
-        """
-        Returns a cursor for the matching browser events related emitted for the specified username.
-        """
-        return self.event_collection.find({
-            "username": username,
-            "event_type": event_type,
-            "time": {"$gt": self.start_time},
-        })
-
-    def verify_events_of_type(self, username, event_type, expected_events, expected_referers=None):
-        """Verify that the expected events of a given type were logged.
-        Args:
-            username (str): The name of the user for which events will be tested.
-            event_type (str): The type of event to be verified.
-            expected_events (list): A list of dicts representing the events that should
-                have been fired.
-            expected_referers (list): A list of strings representing the referers for each event
-                that should been fired (optional). If present, the actual referers compared
-                with this list, checking that the expected_referers are the suffixes of
-                actual_referers. For example, if one event is expected, specifying ["/account/settings"]
-                will verify that the referer for the single event ends with "/account/settings".
-        """
-        EmptyPromise(
-            lambda: self.get_matching_events(username, event_type).count() >= len(expected_events),
-            "Waiting for the minimum number of events of type {type} to have been recorded".format(type=event_type)
-        ).fulfill()
-
-        # Verify that the correct events were fired
-        cursor = self.get_matching_events(username, event_type)
-        actual_events = []
-        actual_referers = []
-        for __ in range(0, cursor.count()):
-            emitted_data = cursor.next()
-            event = emitted_data["event"]
-            if emitted_data["event_source"] == "browser":
-                event = json.loads(event)
-            actual_events.append(event)
-            actual_referers.append(emitted_data["referer"])
-        self.assertEqual(expected_events, actual_events)
-        if expected_referers is not None:
-            self.assertEqual(len(expected_referers), len(actual_referers), "Number of expected referers is incorrect")
-            for index, actual_referer in enumerate(actual_referers):
-                self.assertTrue(
-                    actual_referer.endswith(expected_referers[index]),
-                    "Refer '{0}' does not have correct suffix, '{1}'.".format(actual_referer, expected_referers[index])
-                )
 
     @contextmanager
     def capture_events(self, event_filter=None, number_of_matches=1, captured_events=None):
@@ -380,9 +309,12 @@ class EventsTestMixin(object):
                 captured_events.append(event)
 
     @contextmanager
-    def assert_matching_events_emitted_in(self, event_filter=None, number_of_matches=1):
-        with self.capture_events(event_filter, number_of_matches, []):
+    def assert_events_match_during(self, event_filter=None, expected_events=None):
+        captured_events = []
+        with self.capture_events(event_filter, len(expected_events), captured_events):
             yield
+
+        self.assert_events_match(expected_events, captured_events)
 
     def wait_for_events(self, start_time=None, event_filter=None, number_of_matches=1):
         if start_time is None:
@@ -455,7 +387,16 @@ class EventsTestMixin(object):
 
     def assert_events_match(self, expected_events, actual_events):
         for expected_event, actual_event in zip(expected_events, actual_events):
-            assert_event_matches(expected_event, actual_event)
+            assert_event_matches(
+                expected_event,
+                actual_event,
+                tolerate={
+                    'string_payload',
+                    'root_extra_fields',
+                    'context_extra_fields',
+                    'payload_extra_fields'
+                }
+            )
 
     def relative_path_to_absolute_uri(self, relative_path):
         return urlparse.urljoin(BASE_URL, relative_path)
