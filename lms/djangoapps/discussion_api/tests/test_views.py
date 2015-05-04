@@ -189,9 +189,14 @@ class ThreadViewSetListTest(DiscussionAPIViewTestMixin, ModuleStoreTestCase):
 
     def test_pagination(self):
         self.register_get_threads_response([], page=1, num_pages=1)
-        self.client.get(
+        response = self.client.get(
             self.url,
             {"course_id": unicode(self.course.id), "page": "18", "page_size": "4"}
+        )
+        self.assert_response_correct(
+            response,
+            404,
+            {"developer_message": "Not found."}
         )
         self.assert_last_query_params({
             "course_id": [unicode(self.course.id)],

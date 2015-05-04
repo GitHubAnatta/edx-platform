@@ -1,6 +1,8 @@
 """
 Discussion API internal interface
 """
+from django.http import Http404
+
 from collections import defaultdict
 
 from lms.lib.comment_client.thread import Thread
@@ -111,12 +113,16 @@ def get_thread_list(request, course_key, page, page_size):
     A paginated result containing a list of threads; see
     discussion_api.views.ThreadViewSet for more detail.
     """
-    # TODO: CS accepts pages beyond the max; should we check for that here?
-    threads, page, num_pages, _ = Thread.search({
+    threads, result_page, num_pages, _ = Thread.search({
         "course_id": unicode(course_key),
         "page": page,
         "per_page": page_size
     })
+    # The comments service returns the last page of results if the requested
+    # page is beyond the last page, but we want be consistent with DRF's general
+    # behavior and return a 404 in that case
+    if result_page != page:
+        raise Http404
 
     results = [_cc_thread_to_api_thread(thread) for thread in threads]
     return get_paginated_data(request, results, page, num_pages)

@@ -7,6 +7,7 @@ import httpretty
 import mock
 from pytz import UTC
 
+from django.http import Http404
 from django.test.client import RequestFactory
 
 from opaque_keys.edx.locator import CourseLocator
@@ -473,3 +474,8 @@ class GetThreadListTest(CommentsServiceMockMixin, ModuleStoreTestCase):
                 "previous": "http://testserver/test_path?page=2",
             }
         )
+
+        # Test page past the last one
+        self.register_get_threads_response([], page=3, num_pages=3)
+        with self.assertRaises(Http404):
+            get_thread_list(self.request, self.course_key, page=4, page_size=10)

@@ -105,7 +105,7 @@ class ThreadViewSet(_ViewMixin, DeveloperErrorViewMixin, ViewSet):
             * updated_at: The ISO 8601 timestamp for the last modification of
                 the thread, which may not have been an update of the title/body
 
-            * type: The thread's type (either "question" or "dicsussion")
+            * type: The thread's type (either "question" or "discussion")
 
             * title: The thread's title
 
