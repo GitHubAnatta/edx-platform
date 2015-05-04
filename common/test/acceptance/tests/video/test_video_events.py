@@ -61,7 +61,7 @@ class VideoEventsTest(EventsTestMixin, VideoBaseTest):
                 'code': '3_yD_cEKoCk'
             }
         }
-        assert_event_matches(expected_event, video_event)
+        self.assert_events_match([expected_event], [video_event])
 
     def assert_valid_control_event_at_time(self, video_event, time_in_seconds):
         """
@@ -123,7 +123,7 @@ class VideoEventsTest(EventsTestMixin, VideoBaseTest):
             'referer': self.browser.current_url,
             'name': 'load_video',
         }
-        assert_event_matches(static_fields_pattern, load_video_event, strict=True)
+        assert_event_matches(static_fields_pattern, load_video_event, tolerate=[])
 
     def assert_field_type(self, event_dict, field, field_type):
         self.assertIn(field, event_dict, '{0} not found in the root of the event'.format(field))
