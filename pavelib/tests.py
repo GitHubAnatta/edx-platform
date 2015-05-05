@@ -224,11 +224,13 @@ def combine_jenkins_coverage():
     for directory in Env.LIB_TEST_DIRS + ['cms', 'lms']:
         report_dir = Env.REPORT_DIR / directory
         if report_dir.isdir():
-            sh("cd {} && coverage combine --rcfile={}".format(
-                report_dir,
-                coveragerc,
+            sh(
+                "cd {} && coverage combine --rcfile={}".format(
+                    report_dir,
+                    coveragerc,
                 )
             )
+
 
 @task
 @needs('pavelib.prereqs.install_prereqs')
