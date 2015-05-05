@@ -345,6 +345,24 @@ class EventsTestMixin(object):
         self.assert_events_match(expected_events, captured_events)
 
     def wait_for_events(self, start_time=None, event_filter=None, number_of_matches=1, timeout=None):
+        """
+        Wait for `number_of_matches` events to pass the `event_filter`.
+
+        By default, this will look at all events that have been emitted since the beginning of the setup of this mixin.
+        A custom `start_time` can be specified which will limit the events searched to only those emitted after that
+        time.
+
+        The `event_filter` is expected to be a callable that allows you to filter the event stream and select particular
+        events of interest. A dictionary `event_filter` is also supported, which simply indicates that the event should
+        match that provided expectation.
+
+        `number_of_matches` lets us know when enough events have been found and it can move on. The function will not
+        return until this many events have passed the filter. If not enough events are found before a timeout expires,
+        then this will raise a `BrokenPromise` error. Note that this simply states that *at least* this many events have
+        been emitted, so `number_of_matches` is simply a lower bound for the size of `captured_events`.
+
+        Specifying a custom `timeout` can allow you to extend the default 30 second timeout if necessary.
+        """
         if start_time is None:
             start_time = self.start_time
 
@@ -353,6 +371,8 @@ class EventsTestMixin(object):
 
         return Promise(
             lambda: self.matching_events_were_emitted(start_time=start_time, event_filter=event_filter, number_of_matches=number_of_matches),
+            # This is a bit of a hack, Promise calls str(description), so I set the description to an object with a
+            # custom __str__ and have it do some intelligent stuff to generate a helpful error message.
             CollectedEventsDescription(
                 'Waiting for {number_of_matches} events to match the filter:\n{event_filter}'.format(
                     number_of_matches=number_of_matches,
@@ -364,10 +384,20 @@ class EventsTestMixin(object):
         ).fulfill()
 
     def matching_events_were_emitted(self, start_time=None, event_filter=None, number_of_matches=1):
+        """Return True if enough events have been emitted that pass the `event_filter` since `start_time`."""
         matching_events = self.get_matching_events_from_time(start_time=start_time, event_filter=event_filter)
         return len(matching_events) >= number_of_matches, matching_events
 
     def get_matching_events_from_time(self, start_time=None, event_filter=None):
+        """
+        Return a list of events that pass the `event_filter` and were emitted after `start_time`.
+
+        This function is used internally by most of the other assertions and convenience methods in this class.
+
+        The `event_filter` is expected to be a callable that allows you to filter the event stream and select particular
+        events of interest. A dictionary `event_filter` is also supported, which simply indicates that the event should
+        match that provided expectation.
+        """
         if start_time is None:
             start_time = self.start_time
 
@@ -398,6 +428,7 @@ class EventsTestMixin(object):
                     # logic to identify the events that are of interest.
                     matches = event_filter(event)
             except AssertionError:
+                # allow the filters to use "assert" to filter out events
                 continue
             else:
                 if matches is None or matches:
@@ -405,14 +436,22 @@ class EventsTestMixin(object):
         return matching_events
 
     def assert_matching_events_were_emitted(self, start_time=None, event_filter=None, number_of_matches=1):
+        """Assert that at least `number_of_matches` events have passed the filter since `start_time`."""
+        description = CollectedEventsDescription(
+            'Not enough events match the filter:\n' + self.event_filter_to_descriptive_string(event_filter),
+            functools.partial(self.get_matching_events_from_time, start_time=start_time, event_filter={})
+        )
+
         self.assertTrue(
             self.matching_events_were_emitted(
                 start_time=start_time, event_filter=event_filter, number_of_matches=number_of_matches
-            )
+            ),
+            description
         )
 
-    def assert_no_matching_events_were_emitted(self, event_filter):
-        matching_events = self.get_matching_events_from_time(event_filter=event_filter)
+    def assert_no_matching_events_were_emitted(self, event_filter, start_time=None):
+        """Assert that no events have passed the filter since `start_time`."""
+        matching_events = self.get_matching_events_from_time(start_time=start_time, event_filter=event_filter)
 
         description = CollectedEventsDescription(
             'Events unexpected matched the filter:\n' + self.event_filter_to_descriptive_string(event_filter),
@@ -422,6 +461,10 @@ class EventsTestMixin(object):
         self.assertEquals(len(matching_events), 0, description)
 
     def assert_events_match(self, expected_events, actual_events):
+        """
+        Assert that each item in the expected events sequence matches its counterpart at the same index in the actual
+        events sequence.
+        """
         for expected_event, actual_event in zip(expected_events, actual_events):
             assert_event_matches(
                 expected_event,
@@ -430,9 +473,11 @@ class EventsTestMixin(object):
             )
 
     def relative_path_to_absolute_uri(self, relative_path):
+        """Return an aboslute URI given a relative path taking into account the test context."""
         return urlparse.urljoin(BASE_URL, relative_path)
 
     def event_filter_to_descriptive_string(self, event_filter):
+        """Find the source code of the callable or pretty-print the dictionary"""
         message = ''
         if callable(event_filter):
             file_name = '(unknown)'
@@ -463,6 +508,11 @@ class EventsTestMixin(object):
 
 
 class CollectedEventsDescription(object):
+    """
+    Produce a clear error message when tests fail.
+
+    This class calls the provided `get_events_func` when converted to a string, and pretty prints the returned events.
+    """
 
     def __init__(self, description, get_events_func):
         self.description = description

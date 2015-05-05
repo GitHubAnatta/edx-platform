@@ -483,7 +483,9 @@ class OwnLearnerProfilePageTest(LearnerProfileTestMixin, WebAppTest):
 
         self.assert_default_image_has_public_access(profile_page)
 
-        with self.verify_preference_changed_event_emitted_during(username, user_id, 'profile_image_uploaded_at'):
+        with self.verify_preference_changed_event_emitted_during(
+            username, user_id, 'profile_image_uploaded_at', table='auth_userprofile'
+        ):
             profile_page.upload_file(filename='image.jpg')
         self.assertTrue(profile_page.image_upload_success)
         profile_page.visit()
@@ -599,11 +601,15 @@ class OwnLearnerProfilePageTest(LearnerProfileTestMixin, WebAppTest):
 
         self.assert_default_image_has_public_access(profile_page)
 
-        with self.verify_preference_changed_event_emitted_during(username, user_id, 'profile_image_uploaded_at'):
+        with self.verify_preference_changed_event_emitted_during(
+            username, user_id, 'profile_image_uploaded_at', table='auth_userprofile'
+        ):
             profile_page.upload_file(filename='image.jpg')
         self.assertTrue(profile_page.image_upload_success)
 
-        with self.verify_preference_changed_event_emitted_during(username, user_id, 'profile_image_uploaded_at'):
+        with self.verify_preference_changed_event_emitted_during(
+            username, user_id, 'profile_image_uploaded_at', table='auth_userprofile'
+        ):
             self.assertTrue(profile_page.remove_profile_image())
 
         self.assertTrue(profile_page.profile_has_default_image)
@@ -639,11 +645,15 @@ class OwnLearnerProfilePageTest(LearnerProfileTestMixin, WebAppTest):
         profile_page = self.visit_profile_page(username, privacy=self.PRIVACY_PUBLIC)
         self.assert_default_image_has_public_access(profile_page)
 
-        with self.verify_preference_changed_event_emitted_during(username, user_id, 'profile_image_uploaded_at'):
+        with self.verify_preference_changed_event_emitted_during(
+            username, user_id, 'profile_image_uploaded_at', table='auth_userprofile'
+        ):
             profile_page.upload_file(filename='image.jpg')
         self.assertTrue(profile_page.image_upload_success)
 
-        with self.verify_preference_changed_event_emitted_during(username, user_id, 'profile_image_uploaded_at'):
+        with self.verify_preference_changed_event_emitted_during(
+            username, user_id, 'profile_image_uploaded_at', table='auth_userprofile'
+        ):
             profile_page.upload_file(filename='image.jpg', wait_for_upload_button=False)
 
 

@@ -81,6 +81,30 @@ class TestTrackViews(EventTrackingTestCase):
 
         views.user_track(request)
 
+    def test_user_track_with_empty_event(self):
+        request = self.request_factory.get('/event', {
+            'page': self.url_with_course,
+            'event_type': sentinel.event_type,
+            'event': ''
+        })
+
+        views.user_track(request)
+
+        actual_event = self.get_event()
+        expected_event = {
+            'context': {
+                'course_id': 'foo/bar/baz',
+                'org_id': 'foo',
+                'event_source': 'browser',
+                'page': self.url_with_course,
+                'username': 'anonymous'
+            },
+            'data': {},
+            'timestamp': FROZEN_TIME,
+            'name': str(sentinel.event_type)
+        }
+        assert_event_matches(expected_event, actual_event)
+
     @override_settings(
         EVENT_TRACKING_PROCESSORS=[{'ENGINE': 'track.shim.LegacyFieldMappingProcessor'}],
     )
